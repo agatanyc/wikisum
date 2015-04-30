@@ -13,9 +13,9 @@ from collections import namedtuple
 from sys         import argv
 
 # Third-party libraries
-from bleach      import clean           # sanitizes HTML
-from flask       import Flask, abort    # serves and routes HTTP
-from wikipedia   import page as wiki    # wraps Wikipedia's MediaWiki API
+from bleach      import clean                   # sanitizes HTML
+from flask       import Flask, abort, request   # serves and routes HTTP
+from wikipedia   import page as wiki            # wraps Wikipedia's REST API
 
 # Test Support ----------------------------------------------------------------
 
@@ -77,17 +77,28 @@ def render_html(element):
 
 # Main ------------------------------------------------------------------------
 
-if __name__ == '__main__':
+def main(testing):
 
     app = Flask("wikisum")
+
+    # In test mode, let the server be killed by a "GET /quit" request.  Note:
+    # Flask logs a 500 for the quit request, but this does not actually
+    # indicate an error condition.
+    if testing:
+        @app.route("/quit")
+        def quit():
+            request.environ.get('werkzeug.server.shutdown')()
 
     @app.route("/page/<id>")
     def summarize(id):
         print("Processing", id)
         try:
-            page = mock_pages[id] if '-t' in argv else get_page(id)
+            page = mock_pages[id] if testing else get_page(id)
             return render_html(mkdoc(page))
         except Exception as error:
             abort(404)
 
     app.run()
+
+if __name__ == '__main__':
+    main(testing=('-t' in argv))
